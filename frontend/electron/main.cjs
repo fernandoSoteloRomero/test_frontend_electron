@@ -49,7 +49,7 @@ function getBackendCommand() {
   const ffmpegExe = path.join(process.resourcesPath, "ffmpeg", "ffmpeg.exe");
   const ffmpegDir = path.dirname(ffmpegExe);
 
-  // Agregamos ffmpegDir al PATH del proceso para que Whisper lo encuentre
+  // Whisper (openai-whisper) llama "ffmpeg" por nombre => necesita PATH
   const currentPath = process.env.PATH || "";
   const newPath = `${ffmpegDir};${currentPath}`;
 

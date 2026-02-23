@@ -36,7 +36,7 @@ jobs:
         run: |
           cd frontend
           New-Item -ItemType Directory -Force -Path resources/windows/backend | Out-Null
-          pyinstaller --onefile --name whisper_backend backend_transcripcion/whisper_transcribe.py
+          pyinstaller --onefile --name whisper_backend --collect-data whisper --collect-data tiktoken backend_transcripcion/whisper_transcribe.py
           Copy-Item dist/whisper_backend.exe resources/windows/backend/whisper_backend.exe -Force
 
       - name: Download ffmpeg for Windows
