@@ -10,7 +10,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: frontend
 
     steps:
       - name: Checkout
@@ -35,12 +34,14 @@ jobs:
 
       - name: Build backend exe (PyInstaller)
         run: |
+          cd frontend
           New-Item -ItemType Directory -Force -Path resources/windows/backend | Out-Null
           pyinstaller --onefile --name whisper_backend backend_transcripcion/whisper_transcribe.py
           Copy-Item dist/whisper_backend.exe resources/windows/backend/whisper_backend.exe -Force
 
       - name: Download ffmpeg for Windows
         run: |
+          cd frontend
           New-Item -ItemType Directory -Force -Path resources/windows/ffmpeg | Out-Null
           Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
           Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_unzip" -Force
@@ -49,12 +50,16 @@ jobs:
           Copy-Item $exe.FullName resources/windows/ffmpeg/ffmpeg.exe -Force
 
       - name: Install Node deps
-        run: npm ci
+        run: |
+          cd frontend
+          npm ci
 
       - name: Build Electron installer (NSIS)
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npm run electron:dist
+        run: |
+          cd frontend
+          npm run electron:dist
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
