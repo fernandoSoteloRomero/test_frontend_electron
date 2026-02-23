@@ -1,6 +1,6 @@
 # frontend/backend_transcripcion/whisper_transcribe.py
+import argparse
 import json
-import os
 import subprocess
 import sys
 import tempfile
@@ -10,15 +10,14 @@ from pathlib import Path
 import whisper
 
 
-def preprocess_to_wav(input_path: Path) -> Path:
-    """
-    Convierte a WAV mono 16kHz + normalización leve.
-    Mejora resultados con audios comprimidos (WhatsApp).
-    """
+def preprocess_to_wav(input_path: Path, ffmpeg_bin: str) -> Path:
     tmp_dir = Path(tempfile.mkdtemp(prefix="whisper_"))
     out_wav = tmp_dir / "audio_clean.wav"
 
-    ffmpeg_bin = os.environ.get("FFMPEG_BIN", "ffmpeg")
+    # En Windows empaquetado pasaremos un path absoluto.
+    # En dev se usará "ffmpeg" (PATH).
+    if ffmpeg_bin != "ffmpeg" and not Path(ffmpeg_bin).exists():
+        raise RuntimeError(f"ffmpeg not found at: {ffmpeg_bin}")
 
     cmd = [
         ffmpeg_bin,
@@ -42,18 +41,26 @@ def preprocess_to_wav(input_path: Path) -> Path:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"ok": False, "error": "Missing audio file path"}, ensure_ascii=False))
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("audio_path", help="Path to audio file")
+    parser.add_argument(
+        "--ffmpeg",
+        default="ffmpeg",
+        help="Path to ffmpeg binary (e.g. C:\\...\\ffmpeg.exe)",
+    )
+    args = parser.parse_args()
 
-    audio_path = Path(sys.argv[1]).expanduser().resolve()
+    audio_path = Path(args.audio_path).expanduser().resolve()
     if not audio_path.exists():
-        print(json.dumps({"ok": False, "error": f"File not found: {audio_path}"}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"ok": False, "error": f"File not found: {audio_path}"},
+                ensure_ascii=False,
+            )
+        )
         sys.exit(1)
 
-    # Calidad primero:
-    model_name = "medium"  # si quieres aún más calidad: "large-v3"
-
+    model_name = "medium"  # máxima precisión sin exagerar; opcional: "large-v3"
     prompt = (
         "Transcripción para tesis. Español neutro, claro y formal. "
         "Tema: discapacidad visual en mujeres, accesibilidad, evaluación, "
@@ -65,7 +72,7 @@ def main():
     t0 = time.time()
 
     try:
-        clean_wav = preprocess_to_wav(audio_path)
+        clean_wav = preprocess_to_wav(audio_path, args.ffmpeg)
     except Exception as e:
         print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         sys.exit(2)
