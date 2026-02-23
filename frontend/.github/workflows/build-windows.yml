@@ -1,0 +1,63 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps (Whisper + PyInstaller)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller openai-whisper
+
+      - name: Build backend exe (PyInstaller)
+        run: |
+          New-Item -ItemType Directory -Force -Path resources/windows/backend | Out-Null
+          pyinstaller --onefile --name whisper_backend backend_transcripcion/whisper_transcribe.py
+          Copy-Item dist/whisper_backend.exe resources/windows/backend/whisper_backend.exe -Force
+
+      - name: Download ffmpeg for Windows
+        run: |
+          New-Item -ItemType Directory -Force -Path resources/windows/ffmpeg | Out-Null
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_unzip" -Force
+          $exe = Get-ChildItem -Path "ffmpeg_unzip" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+          if (-not $exe) { throw "ffmpeg.exe not found after unzip" }
+          Copy-Item $exe.FullName resources/windows/ffmpeg/ffmpeg.exe -Force
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Build Electron installer (NSIS)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run electron:dist
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TranscriptorLocal-Windows-Installer
+          path: frontend/dist/*.exe
