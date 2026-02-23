@@ -19,8 +19,7 @@
       { "from": "resources/windows/backend", "to": "backend" }
     ],
     "win": {
-      "target": ["nsis"],
-      "signingHashAlgorithms": null
+      "target": ["nsis"]
     }
   },
   "dependencies": {
