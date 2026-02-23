@@ -25,7 +25,6 @@ function createWindow() {
 }
 
 function getBackendCommand() {
-  // DEV (macOS): corre el script con python
   if (isDev) {
     return {
       cmd: "/opt/homebrew/bin/python3.11",
@@ -37,22 +36,27 @@ function getBackendCommand() {
           "whisper_transcribe.py",
         ),
       ],
+      env: {},
     };
   }
 
-  // PROD (Windows empaquetado): corre el exe del backend
   const backendExe = path.join(
     process.resourcesPath,
     "backend",
     "whisper_backend.exe",
   );
 
-  // ffmpeg incluido como extraResource
   const ffmpegExe = path.join(process.resourcesPath, "ffmpeg", "ffmpeg.exe");
+  const ffmpegDir = path.dirname(ffmpegExe);
+
+  // Agregamos ffmpegDir al PATH del proceso para que Whisper lo encuentre
+  const currentPath = process.env.PATH || "";
+  const newPath = `${ffmpegDir};${currentPath}`;
 
   return {
     cmd: backendExe,
     args: ["--ffmpeg", ffmpegExe],
+    env: { PATH: newPath },
   };
 }
 
@@ -77,7 +81,7 @@ ipcMain.handle("transcribe-file", async (_evt, filePath) => {
   return await new Promise((resolve) => {
     const child = spawn(backend.cmd, [...backend.args, filePath], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
+      env: { ...process.env, ...backend.env },
     });
 
     let stdout = "";
